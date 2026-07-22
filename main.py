@@ -5,17 +5,25 @@ from gtts import gTTS
 
 st.title("日経平均先物 ＆ さいたま市お天気 実況アプリ 🎙️")
 
+
+# 天気データを取得する関数（10分間キャッシュして429エラーを防ぐ）
+@st.cache_data(ttl=600)
+def fetch_weather():
+    weather_url = "https://api.open-meteo.com/v1/forecast?latitude=35.906&longitude=139.638&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Asia/Tokyo"
+    res_raw = requests.get(weather_url)
+    return res_raw.status_code, res_raw.json() if res_raw.status_code == 200 else None
+
+
 if st.button("最新の相場とさいたまの天気をチェックして読み上げる"):
     with st.spinner("株価とさいたまの気象データを取得中..."):
 
         # ----------------------------------------------------
-        # 1. 株価データの取得（独立した例外処理）
+        # 1. 株価データの取得
         # ----------------------------------------------------
         market_text = "日経平均先物のデータを取得できませんでした。"
         try:
             ticker_symbol = "NIY=F"
             stock = yf.Ticker(ticker_symbol)
-            # period="5d" に伸ばしてデータ未取得を防ぐ
             hist = stock.history(period="5d", interval="1h")
 
             if not hist.empty and len(hist) >= 5:
@@ -38,53 +46,45 @@ if st.button("最新の相場とさいたまの天気をチェックして読み
                     f"日経平均先物の現在の価格は、およそ {current_price:,} 円です。 "
                     f"{market_trend}"
                 )
-            else:
-                st.warning("株価データが十分取得できませんでした（histが空または不十分です）。")
         except Exception as e:
             st.error(f"株価取得時にエラーが発生しました: {e}")
 
         # ----------------------------------------------------
-        # 2. お天気データの取得（独立した例外処理）
+        # 2. お天気データの取得
         # ----------------------------------------------------
         weather_text = "さいたま市の天気情報を取得できませんでした。"
-        weather_url = "https://api.open-meteo.com/v1/forecast?latitude=35.906&longitude=139.638&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Asia/Tokyo"
 
         try:
-            res_raw = requests.get(weather_url)
-            
-            # APIエラーのチェック
-            if res_raw.status_code != 200:
-                st.error(f"天気APIのリクエスト失敗 (Status: {res_raw.status_code})")
-            else:
-                res = res_raw.json()
+            status_code, res = fetch_weather()
 
-                if "current" in res and "daily" in res:
-                    temp = res["current"]["temperature_2m"]
-                    w_code = res["current"]["weather_code"]
+            if status_code != 200:
+                st.error(f"天気APIのリクエスト失敗 (Status: {status_code})。しばらく時間を置いてお試しください。")
+            elif res and "current" in res and "daily" in res:
+                temp = res["current"]["temperature_2m"]
+                w_code = res["current"]["weather_code"]
 
-                    # 天気コードを日本語に変換
-                    if w_code == 0:
-                        condition = "快晴"
-                    elif w_code in [1, 2, 3]:
-                        condition = "曇り"
-                    elif w_code in [51, 53, 55, 61, 63, 65, 80, 81, 82]:
-                        condition = "雨"
-                    elif w_code >= 71:
-                        condition = "雪"
-                    else:
-                        condition = "変わりやすい天気"
-
-                    max_temp = res["daily"]["temperature_2m_max"][0]
-                    min_temp = res["daily"]["temperature_2m_min"][0]
-
-                    weather_text = (
-                        f"現在のさいたま市の天気は{condition}、気温は{temp}度です。 "
-                        f"最高気温は{max_temp}度で、最低気温は{min_temp}度です。 "
-                        f"暑いですが、がんばりましょう！"
-                    )
+                # 天気コードを日本語に変換
+                if w_code == 0:
+                    condition = "快晴"
+                elif w_code in [1, 2, 3]:
+                    condition = "曇り"
+                elif w_code in [51, 53, 55, 61, 63, 65, 80, 81, 82]:
+                    condition = "雨"
+                elif w_code >= 71:
+                    condition = "雪"
                 else:
-                    st.warning("天気APIからの応答データに必要なキーが含まれていません。")
-                    st.write("取得レスポンス:", res)
+                    condition = "変わりやすい天気"
+
+                max_temp = res["daily"]["temperature_2m_max"][0]
+                min_temp = res["daily"]["temperature_2m_min"][0]
+
+                weather_text = (
+                    f"現在のさいたま市の天気は{condition}、気温は{temp}度です。 "
+                    f"最高気温は{max_temp}度で、最低気温は{min_temp}度です。 "
+                    f"暑いですが、がんばりましょう！"
+                )
+            else:
+                st.warning("天気データに必要なキーが含まれていません。")
 
         except Exception as e:
             st.error(f"天気取得時にエラーが発生しました: {e}")
