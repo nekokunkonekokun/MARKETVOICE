@@ -64,35 +64,20 @@ if st.button("最新の相場とさいたまの天気をチェックして読み
                 area_forecast = jma_data[0]["timeSeries"][0]["areas"][0]
                 condition = area_forecast["weathers"][0].replace("　", " ")
 
-                # 気温データの正確な取得ロジック
-                # 週間予報データ（jma_data[1]）から今日の「さいたま」の最高・最低気温を取得
-                max_temp, min_temp = None, None
-                try:
-                    weekly_temps = jma_data[1]["timeSeries"][1]["areas"][0]
-                    # さいたま地点の気温配列 (min, maxのペア)
-                    min_temp = weekly_temps["tempsMin"][0]
-                    max_temp = weekly_temps["tempsMax"][0]
-                except (IndexError, KeyError):
-                    # 万が一週間予報側から取れなかった場合のフォールバック（短期予報データから抽出）
-                    temp_series = jma_data[0]["timeSeries"][2]["areas"][0][
-                        "temps"
-                    ]
-                    if len(temp_series) >= 2:
-                        # 配列内の数値を比較して小さい方を最低、大きい方を最高とする
-                        valid_temps = [
-                            int(t) for t in temp_series if t.replace("-", "").isdigit()
-                        ]
-                        if valid_temps:
-                            min_temp = min(valid_temps)
-                            max_temp = max(valid_temps)
+                # 気温データの取得
+                temp_series = jma_data[0]["timeSeries"][2]["areas"][0]["temps"]
 
-                # メッセージ組み立て
-                if max_temp and min_temp and max_temp != min_temp:
-                    temp_info = (
-                        f"最高気温は{max_temp}度、最低気温は{min_temp}度です。"
-                    )
-                elif max_temp:
-                    temp_info = f"最高気温は{max_temp}度です。"
+                # 判定ロジック:
+                # 朝の発表時点では当日の最低気温が "-" (取得不可) になるため、
+                # 要素数や値の中身によって柔軟に文章を作成する
+                valid_temps = [t for t in temp_series if t != ""]
+
+                if len(valid_temps) == 1:
+                    # 今日日中の最高気温のみが存在する場合
+                    temp_info = f"最高気温は{valid_temps[0]}度です。"
+                elif len(valid_temps) >= 2:
+                    # 最低気温・最高気温の両方が取れる場合
+                    temp_info = f"最高気温は{valid_temps[1]}度、最低気温は{valid_temps[0]}度です。"
                 else:
                     temp_info = ""
 
