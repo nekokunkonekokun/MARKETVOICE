@@ -6,7 +6,7 @@ from gtts import gTTS
 st.title("日経平均先物 ＆ さいたま市お天気 実況アプリ 🎙️")
 
 
-# 気象庁APIからさいたま市（埼玉県: 110000）のデータを取得
+# 気象庁APIからさいたま市の予報データを取得
 @st.cache_data(ttl=600)
 def fetch_jma_weather():
     jma_url = "https://www.jma.go.jp/bosai/forecast/data/forecast/110000.json"
@@ -52,7 +52,7 @@ if st.button("最新の相場とさいたまの天気をチェックして読み
             st.error(f"株価取得時にエラーが発生しました: {e}")
 
         # ----------------------------------------------------
-        # 2. 気象庁APIからさいたま市の天気情報を取得（最高気温のみ）
+        # 2. 気象庁APIから「さいたま市」の天気・最高気温を取得
         # ----------------------------------------------------
         weather_text = "さいたま市の天気情報を取得できませんでした。"
 
@@ -60,19 +60,30 @@ if st.button("最新の相場とさいたまの天気をチェックして読み
             jma_data = fetch_jma_weather()
 
             if jma_data:
-                # 天気テキスト（例: "晴れ 夕方から くもり..."）
+                # 埼玉県南部の天気テキスト
                 area_forecast = jma_data[0]["timeSeries"][0]["areas"][0]
                 condition = area_forecast["weathers"][0].replace("　", " ")
 
-                # 最高気温のみを抽出
-                temp_series = jma_data[0]["timeSeries"][2]["areas"][0]["temps"]
-                valid_temps = [t for t in temp_series if t != ""]
+                # さいたま地点の最高気温を取得
+                # timeSeries[2] の中で "さいたま" 地点 (area.code == "43056" または "さいたま") を探索
+                max_temp = None
+                temp_areas = jma_data[0]["timeSeries"][2]["areas"]
+                
+                for area in temp_areas:
+                    if area["area"]["name"] == "さいたま" or area["area"]["code"] == "43056":
+                        temps = [t for t in area["temps"] if t != ""]
+                        if temps:
+                            # 今日の日中最高気温を取得
+                            max_temp = temps[0]
+                        break
 
-                temp_info = ""
-                if valid_temps:
-                    # 配列の中にある数値（日中の最高気温）を取得
-                    max_temp = valid_temps[-1]
-                    temp_info = f"日中の最高気温は{max_temp}度です。"
+                # もし「さいたま」がピンポイントで見つからない場合のバックアップ
+                if not max_temp and temp_areas:
+                    temps = [t for t in temp_areas[0]["temps"] if t != ""]
+                    if temps:
+                        max_temp = temps[0]
+
+                temp_info = f"日中の最高気温は{max_temp}度です。" if max_temp else ""
 
                 weather_text = (
                     f"本日のさいたま市周辺の天気は「{condition}」です。 "
