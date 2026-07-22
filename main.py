@@ -52,7 +52,7 @@ if st.button("最新の相場とさいたまの天気をチェックして読み
             st.error(f"株価取得時にエラーが発生しました: {e}")
 
         # ----------------------------------------------------
-        # 2. 気象庁APIからさいたま市の天気情報を取得
+        # 2. 気象庁APIからさいたま市の天気情報を取得（最高気温のみ）
         # ----------------------------------------------------
         weather_text = "さいたま市の天気情報を取得できませんでした。"
 
@@ -64,22 +64,15 @@ if st.button("最新の相場とさいたまの天気をチェックして読み
                 area_forecast = jma_data[0]["timeSeries"][0]["areas"][0]
                 condition = area_forecast["weathers"][0].replace("　", " ")
 
-                # 気温データの取得
+                # 最高気温のみを抽出
                 temp_series = jma_data[0]["timeSeries"][2]["areas"][0]["temps"]
-
-                # 判定ロジック:
-                # 朝の発表時点では当日の最低気温が "-" (取得不可) になるため、
-                # 要素数や値の中身によって柔軟に文章を作成する
                 valid_temps = [t for t in temp_series if t != ""]
 
-                if len(valid_temps) == 1:
-                    # 今日日中の最高気温のみが存在する場合
-                    temp_info = f"最高気温は{valid_temps[0]}度です。"
-                elif len(valid_temps) >= 2:
-                    # 最低気温・最高気温の両方が取れる場合
-                    temp_info = f"最高気温は{valid_temps[1]}度、最低気温は{valid_temps[0]}度です。"
-                else:
-                    temp_info = ""
+                temp_info = ""
+                if valid_temps:
+                    # 配列の中にある数値（日中の最高気温）を取得
+                    max_temp = valid_temps[-1]
+                    temp_info = f"日中の最高気温は{max_temp}度です。"
 
                 weather_text = (
                     f"本日のさいたま市周辺の天気は「{condition}」です。 "
