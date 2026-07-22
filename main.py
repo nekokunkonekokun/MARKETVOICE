@@ -6,19 +6,22 @@ from gtts import gTTS
 st.title("日経平均先物 ＆ さいたま市お天気 実況アプリ 🎙️")
 
 
-# 天気データを取得する関数（10分間キャッシュして429エラーを防ぐ）
+# 気象庁APIからさいたま市（埼玉県南部: エリアコード110000）のデータを取得する関数
 @st.cache_data(ttl=600)
-def fetch_weather():
-    weather_url = "https://api.open-meteo.com/v1/forecast?latitude=35.906&longitude=139.638&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Asia/Tokyo"
-    res_raw = requests.get(weather_url)
-    return res_raw.status_code, res_raw.json() if res_raw.status_code == 200 else None
+def fetch_jma_weather():
+    # 埼玉県（110000）の天気予報JSON
+    jma_url = "https://www.jma.go.jp/bosai/forecast/data/forecast/110000.json"
+    res = requests.get(jma_url)
+    if res.status_code == 200:
+        return res.json()
+    return None
 
 
 if st.button("最新の相場とさいたまの天気をチェックして読み上げる"):
     with st.spinner("株価とさいたまの気象データを取得中..."):
 
         # ----------------------------------------------------
-        # 1. 株価データの取得
+        # 1. 株価データの取得（日経平均先物）
         # ----------------------------------------------------
         market_text = "日経平均先物のデータを取得できませんでした。"
         try:
@@ -50,41 +53,36 @@ if st.button("最新の相場とさいたまの天気をチェックして読み
             st.error(f"株価取得時にエラーが発生しました: {e}")
 
         # ----------------------------------------------------
-        # 2. お天気データの取得
+        # 2. 気象庁APIからさいたま市の天気情報を取得
         # ----------------------------------------------------
         weather_text = "さいたま市の天気情報を取得できませんでした。"
 
         try:
-            status_code, res = fetch_weather()
+            jma_data = fetch_jma_weather()
 
-            if status_code != 200:
-                st.error(f"天気APIのリクエスト失敗 (Status: {status_code})。しばらく時間を置いてお試しください。")
-            elif res and "current" in res and "daily" in res:
-                temp = res["current"]["temperature_2m"]
-                w_code = res["current"]["weather_code"]
+            if jma_data:
+                # 埼玉南部の天気テキスト（例: "晴れ 時々 くもり"）
+                area_forecast = jma_data[0]["timeSeries"][0]["areas"][0]
+                condition = area_forecast["weathers"][0].replace("　", " ")
 
-                # 天気コードを日本語に変換
-                if w_code == 0:
-                    condition = "快晴"
-                elif w_code in [1, 2, 3]:
-                    condition = "曇り"
-                elif w_code in [51, 53, 55, 61, 63, 65, 80, 81, 82]:
-                    condition = "雨"
-                elif w_code >= 71:
-                    condition = "雪"
+                # 気温データの取得（さいたま地点）
+                temp_series = jma_data[0]["timeSeries"][2]
+                temps = temp_series["areas"][0]["temps"]
+
+                # 取得できる気温データ数に応じて柔軟に対応
+                if len(temps) >= 2:
+                    min_temp = temps[0]
+                    max_temp = temps[1]
+                    temp_info = f"最高気温は{max_temp}度、最低気温は{min_temp}度です。"
                 else:
-                    condition = "変わりやすい天気"
-
-                max_temp = res["daily"]["temperature_2m_max"][0]
-                min_temp = res["daily"]["temperature_2m_min"][0]
+                    temp_info = ""
 
                 weather_text = (
-                    f"現在のさいたま市の天気は{condition}、気温は{temp}度です。 "
-                    f"最高気温は{max_temp}度で、最低気温は{min_temp}度です。 "
-                    f"暑いですが、がんばりましょう！"
+                    f"本日のさいたま市周辺の天気は「{condition}」です。 "
+                    f"{temp_info} 今日も一日がんばりましょう！"
                 )
             else:
-                st.warning("天気データに必要なキーが含まれていません。")
+                st.error("気象庁からのデータ取得に失敗しました。")
 
         except Exception as e:
             st.error(f"天気取得時にエラーが発生しました: {e}")
