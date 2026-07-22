@@ -1,32 +1,24 @@
 import streamlit as st
 import yfinance as yf
 from gtts import gTTS
-import os
+import requests
 
-st.title("日経平均先物 相場実況アプリ 🎙️")
-st.write("ボタンを押すと、現在の価格と過去4時間の推移、相場の状態を音声で教えてくれます。")
+st.title("日経平均先物 ＆ 上尾市お天気 実況アプリ 🎙️")
 
-# 更新ボタン
-if st.button("最新の相場をチェックして読み上げる"):
-    with st.spinner("株価データを取得して音声を作成中..."):
+if st.button("最新の相場と上尾の天気をチェックして読み上げる"):
+    with st.spinner("株価と上尾の気象データを取得中..."):
         try:
-            # 1. 銘柄コード（日経平均先物：NIY=F）のデータを取得
+            # 1. 株価データの取得（日経平均先物）
             ticker_symbol = "NIY=F"
             stock = yf.Ticker(ticker_symbol)
             hist = stock.history(period="1d", interval="1h")
             
-            # データが十分に取れた場合（現在、1, 2, 3, 4時間前）
+            market_text = ""
             if not hist.empty and len(hist) >= 5:
                 current_price = round(hist['Close'].iloc[-1])
-                p1_ago = round(hist['Close'].iloc[-2])
-                p2_ago = round(hist['Close'].iloc[-3])
-                p3_ago = round(hist['Close'].iloc[-4])
                 p4_ago = round(hist['Close'].iloc[-5])
-                
-                # 4時間前との価格差を計算
                 diff = current_price - p4_ago
                 
-                # 相場判定ロジック
                 if abs(diff) <= 100:
                     market_trend = "現在はボックス相場です。"
                 elif diff > 100:
@@ -34,31 +26,55 @@ if st.button("最新の相場をチェックして読み上げる"):
                 else:
                     market_trend = f"4時間前と比べて、およそ {abs(diff):,} 円下がっているので、下げ相場です！"
                 
-                # 読み上げる文章の組み立て
-                text = (
+                market_text = (
                     f"日経平均先物の現在の価格は、およそ {current_price:,} 円です。 "
-                    f"過去4時間の推移は、4時間前が {p4_ago:,} 円、"
-                    f"3時間前が {p3_ago:,} 円、"
-                    f"2時間前が {p2_ago:,} 円、"
-                    f"1時間前が {p1_ago:,} 円となっています。 "
                     f"{market_trend}"
                 )
-                
-                # 画面にテキストを表示
-                st.success("取得完了！")
-                st.write(text)
-                
-                # 2. gTTSで音声ファイルを作成
-                audio_file = "stock_trend.mp3"
-                tts = gTTS(text=text, lang='ja')
-                tts.save(audio_file)
-                
-                # 3. Streamlitの音声プレイヤーで再生（自動再生）
-                st.audio(audio_file, format="audio/mp3", autoplay=True)
-                
             else:
-                st.warning("十分な時間足データを取得できませんでした。市場が閉まっている可能性があります。")
+                market_text = "日経平均先物のデータを十分に取得できませんでした。"
+
+            # 2. Open-Meteoから上尾市（緯度:35.976, 経度:139.593）の現在天気・最高/最低気温を取得
+            weather_text = "上尾市の天気情報を取得できませんでした。"
+            # daily=temperature_2m_max,temperature_2m_min を追加
+            weather_url = "https://api.open-meteo.com/v1/forecast?latitude=35.976&longitude=139.593&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Asia/Tokyo"
+            
+            res = requests.get(weather_url).json()
+            if "current" in res and "daily" in res:
+                temp = res["current"]["temperature_2m"]
+                w_code = res["current"]["weather_code"]
                 
+                # 天気コードをざっくり日本語に
+                if w_code == 0:
+                    condition = "晴れ"
+                elif w_code in [1, 2, 3]:
+                    condition = "曇り"
+                elif w_code >= 51:
+                    condition = "雨"
+                else:
+                    condition = "変わりやすい天気"
+                
+                # デイリーデータ（今日＝インデックス0）から最高・最低気温を取得
+                max_temp = res["daily"]["temperature_2m_max"][0]
+                min_temp = res["daily"]["temperature_2m_min"][0]
+                
+                # ご希望のセリフ形式に組み立て
+                weather_text = (
+                    f"現在の上尾市の天気は{condition}、気温は{temp}度です。 "
+                    f"最高気温は{max_temp}度で、最低気温は{min_temp}度です。 "
+                    f"暑いですが、がんばりましょう！"
+                )
+
+            # 3. 相場解説と天気予報を合体
+            text = f"{market_text} そして、{weather_text}"
+            
+            st.success("取得完了！")
+            st.write(text)
+            
+            # 4. 音声化して再生
+            audio_file = "ageo_stock_weather.mp3"
+            tts = gTTS(text=text, lang='ja')
+            tts.save(audio_file)
+            st.audio(audio_file, format="audio/mp3", autoplay=True)
+            
         except Exception as e:
             st.error(f"エラーが発生しました: {e}")
-
