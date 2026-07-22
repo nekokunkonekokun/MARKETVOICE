@@ -6,10 +6,9 @@ from gtts import gTTS
 st.title("日経平均先物 ＆ さいたま市お天気 実況アプリ 🎙️")
 
 
-# 気象庁APIからさいたま市（埼玉県南部: エリアコード110000）のデータを取得する関数
+# 気象庁APIからさいたま市（埼玉県: 110000）のデータを取得
 @st.cache_data(ttl=600)
 def fetch_jma_weather():
-    # 埼玉県（110000）の天気予報JSON
     jma_url = "https://www.jma.go.jp/bosai/forecast/data/forecast/110000.json"
     res = requests.get(jma_url)
     if res.status_code == 200:
@@ -61,19 +60,39 @@ if st.button("最新の相場とさいたまの天気をチェックして読み
             jma_data = fetch_jma_weather()
 
             if jma_data:
-                # 埼玉南部の天気テキスト（例: "晴れ 時々 くもり"）
+                # 天気テキスト（例: "晴れ 夕方から くもり..."）
                 area_forecast = jma_data[0]["timeSeries"][0]["areas"][0]
                 condition = area_forecast["weathers"][0].replace("　", " ")
 
-                # 気温データの取得（さいたま地点）
-                temp_series = jma_data[0]["timeSeries"][2]
-                temps = temp_series["areas"][0]["temps"]
+                # 気温データの正確な取得ロジック
+                # 週間予報データ（jma_data[1]）から今日の「さいたま」の最高・最低気温を取得
+                max_temp, min_temp = None, None
+                try:
+                    weekly_temps = jma_data[1]["timeSeries"][1]["areas"][0]
+                    # さいたま地点の気温配列 (min, maxのペア)
+                    min_temp = weekly_temps["tempsMin"][0]
+                    max_temp = weekly_temps["tempsMax"][0]
+                except (IndexError, KeyError):
+                    # 万が一週間予報側から取れなかった場合のフォールバック（短期予報データから抽出）
+                    temp_series = jma_data[0]["timeSeries"][2]["areas"][0][
+                        "temps"
+                    ]
+                    if len(temp_series) >= 2:
+                        # 配列内の数値を比較して小さい方を最低、大きい方を最高とする
+                        valid_temps = [
+                            int(t) for t in temp_series if t.replace("-", "").isdigit()
+                        ]
+                        if valid_temps:
+                            min_temp = min(valid_temps)
+                            max_temp = max(valid_temps)
 
-                # 取得できる気温データ数に応じて柔軟に対応
-                if len(temps) >= 2:
-                    min_temp = temps[0]
-                    max_temp = temps[1]
-                    temp_info = f"最高気温は{max_temp}度、最低気温は{min_temp}度です。"
+                # メッセージ組み立て
+                if max_temp and min_temp and max_temp != min_temp:
+                    temp_info = (
+                        f"最高気温は{max_temp}度、最低気温は{min_temp}度です。"
+                    )
+                elif max_temp:
+                    temp_info = f"最高気温は{max_temp}度です。"
                 else:
                     temp_info = ""
 
