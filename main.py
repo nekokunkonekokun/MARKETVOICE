@@ -3,10 +3,10 @@ import yfinance as yf
 from gtts import gTTS
 import requests
 
-st.title("日経平均先物 ＆ 上尾市お天気 実況アプリ 🎙️")
+st.title("日経平均先物 ＆ お天気 実況アプリ 🎙️")
 
-if st.button("最新の相場と上尾の天気をチェックして読み上げる"):
-    with st.spinner("株価と上尾の気象データを取得中..."):
+if st.button("最新の相場とさいたまの天気をチェックして読み上げる"):
+    with st.spinner("株価とさいたまの気象データを取得中..."):
         try:
             # 1. 株価データの取得（日経平均先物）
             ticker_symbol = "NIY=F"
@@ -33,10 +33,9 @@ if st.button("最新の相場と上尾の天気をチェックして読み上げ
             else:
                 market_text = "日経平均先物のデータを十分に取得できませんでした。"
 
-            # 2. Open-Meteoから上尾市（緯度:35.976, 経度:139.593）の現在天気・最高/最低気温を取得
-            weather_text = "上尾市の天気情報を取得できませんでした。"
-            # daily=temperature_2m_max,temperature_2m_min を追加
-            weather_url = "https://api.open-meteo.com/v1/forecast?latitude=35.976&longitude=139.593&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Asia/Tokyo"
+            # 2. Open-Meteoからさいたま市（緯度:35.906, 経度:139.638）の現在天気・最高/最低気温を取得
+            weather_text = "さいたま市の天気情報を取得できませんでした。"
+            weather_url = "https://api.open-meteo.com/v1/forecast?latitude=35.906&longitude=139.638&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Asia/Tokyo"
             
             res = requests.get(weather_url).json()
             if "current" in res and "daily" in res:
@@ -53,13 +52,13 @@ if st.button("最新の相場と上尾の天気をチェックして読み上げ
                 else:
                     condition = "変わりやすい天気"
                 
-                # デイリーデータ（今日＝インデックス0）から最高・最低気温を取得
+                # デイリーデータから最高・最低気温を取得
                 max_temp = res["daily"]["temperature_2m_max"][0]
                 min_temp = res["daily"]["temperature_2m_min"][0]
                 
-                # ご希望のセリフ形式に組み立て
+                # さいたま市バージョンにセリフを変更
                 weather_text = (
-                    f"現在の上尾市の天気は{condition}、気温は{temp}度です。 "
+                    f"現在のさいたま市の天気は{condition}、気温は{temp}度です。 "
                     f"最高気温は{max_temp}度で、最低気温は{min_temp}度です。 "
                     f"暑いですが、がんばりましょう！"
                 )
@@ -71,7 +70,7 @@ if st.button("最新の相場と上尾の天気をチェックして読み上げ
             st.write(text)
             
             # 4. 音声化して再生
-            audio_file = "ageo_stock_weather.mp3"
+            audio_file = "saitama_stock_weather.mp3"
             tts = gTTS(text=text, lang='ja')
             tts.save(audio_file)
             st.audio(audio_file, format="audio/mp3", autoplay=True)
