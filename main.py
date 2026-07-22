@@ -5,7 +5,7 @@ import requests
 
 st.title("日経平均先物 ＆ お天気 実況アプリ 🎙️")
 
-if st.button("最新の相場とさいたまの天気をチェックして読み上げる"):
+if st.button("最新の相場と天気をチェックして読み上げる"):
     with st.spinner("株価とさいたまの気象データを取得中..."):
         try:
             # 1. 株価データの取得（日経平均先物）
@@ -33,22 +33,28 @@ if st.button("最新の相場とさいたまの天気をチェックして読み
             else:
                 market_text = "日経平均先物のデータを十分に取得できませんでした。"
 
-            # 2. Open-Meteoからさいたま市（緯度:35.906, 経度:139.638）の現在天気・最高/最低気温を取得
+            # 2. Open-Meteoからさいたま市の天気情報を取得（※ weathercode に修正）
             weather_text = "さいたま市の天気情報を取得できませんでした。"
-            weather_url = "https://api.open-meteo.com/v1/forecast?latitude=35.906&longitude=139.638&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Asia/Tokyo"
+            weather_url = "https://api.open-meteo.com/v1/forecast?latitude=35.906&longitude=139.638&current=temperature_2m,weathercode&daily=temperature_2m_max,temperature_2m_min&timezone=Asia/Tokyo"
             
             res = requests.get(weather_url).json()
+            
+            # デバッグ用にAPIの返り値を確認したい場合は、コメントアウトを外してください
+            # st.write("API Response:", res)
+
             if "current" in res and "daily" in res:
                 temp = res["current"]["temperature_2m"]
-                w_code = res["current"]["weather_code"]
+                w_code = res["current"]["weathercode"]
                 
-                # 天気コードをざっくり日本語に
+                # 天気コードを日本語に変換
                 if w_code == 0:
-                    condition = "晴れ"
+                    condition = "快晴"
                 elif w_code in [1, 2, 3]:
                     condition = "曇り"
-                elif w_code >= 51:
+                elif w_code in [51, 53, 55, 61, 63, 65, 80, 81, 82]:
                     condition = "雨"
+                elif w_code >= 71:
+                    condition = "雪"
                 else:
                     condition = "変わりやすい天気"
                 
@@ -56,7 +62,6 @@ if st.button("最新の相場とさいたまの天気をチェックして読み
                 max_temp = res["daily"]["temperature_2m_max"][0]
                 min_temp = res["daily"]["temperature_2m_min"][0]
                 
-                # さいたま市バージョンにセリフを変更
                 weather_text = (
                     f"現在のさいたま市の天気は{condition}、気温は{temp}度です。 "
                     f"最高気温は{max_temp}度で、最低気温は{min_temp}度です。 "
