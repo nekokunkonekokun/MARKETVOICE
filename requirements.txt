@@ -2,4 +2,7 @@ streamlit
 yfinance
 gtts
 pandas
+japanize-matplotlib
+matplotlib
+numpy
 
