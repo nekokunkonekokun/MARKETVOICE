@@ -1,10 +1,11 @@
-
 import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import japanize_matplotlib
+
+# Matplotlibの日本語フォント設定（packages.txtで入れたNoto Sansを指定）
+plt.rcParams['font.family'] = 'Noto Sans CJK JP'
 
 st.set_page_config(page_title="15分足 勝敗・損益幅分析", layout="wide")
 
@@ -12,18 +13,19 @@ st.title("🎲 CME日経225先物 15分足ギャンブル分析")
 st.caption("直近5本・25本の1本ごとの勝敗数と平均変動幅（勝ち幅・負け幅）を可視化します")
 
 # データ取得
-@st.cache_data(ttl=300)  # 5分キャッシュ
+@st.cache_data(ttl=300)  # 5分間キャッシュ
 def load_data():
     symbol = "NIY=F"
     df = yf.download(symbol, period="60d", interval="15m")
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     
+    # 1本ごとの前本比差分
     df['Diff'] = df['Close'].diff()
     df['Win_Val'] = np.where(df['Diff'] > 0, df['Diff'], np.nan)
     df['Loss_Val'] = np.where(df['Diff'] < 0, df['Diff'].abs(), np.nan)
     
-    # ローリング計算
+    # ローリング計算（min_periods=1 で1本でもあれば平均算出）
     for w in [5, 25]:
         df[f'Win_{w}'] = (df['Diff'] > 0).rolling(w).sum()
         df[f'Loss_{w}'] = (df['Diff'] < 0).rolling(w).sum()
@@ -63,14 +65,14 @@ st.divider()
 # グラフ描画
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
 
-# 株価チャート
+# 1. 株価チャート
 ax1.plot(df.index[-200:], df['Close'].iloc[-200:], label="日経先物 (NIY=F)", color="black")
 ax1.set_title("日経225先物 15分足チャート (直近200本)")
 ax1.set_ylabel("価格 (円)")
 ax1.grid(True)
 ax1.legend()
 
-# 25本ローリング推移
+# 2. 25本ローリング推移
 ax2.plot(df.index[-200:], df['AvgWin_25'].iloc[-200:], label="直近25本の平均勝ち幅", color="red")
 ax2.plot(df.index[-200:], df['AvgLoss_25'].iloc[-200:], label="直近25本の平均負け幅", color="blue")
 ax2.set_title("直近25本における平均勝ち幅 vs 平均負け幅の推移")
@@ -80,5 +82,5 @@ ax2.legend()
 
 plt.tight_layout()
 
-# Streamlitに描画
+# Streamlitへ出力
 st.pyplot(fig)
