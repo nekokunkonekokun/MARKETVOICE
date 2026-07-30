@@ -64,19 +64,36 @@ with col2:
 
 st.divider()
 
-# グラフ描画
+# ----------------------------------------------------
+# グラフ描画（休業期間の空白を詰める処理）
+# ----------------------------------------------------
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
 
+# 直近200本に絞り込む
+plot_df = df.iloc[-200:].copy()
+
+# X軸用の連番（0 ~ 199）を作成して時間のスキップを消去
+x = np.arange(len(plot_df))
+
+# X軸の目盛りラベルを生成（25本ごと＝約6時間おき）
+step = 25
+tick_indices = x[::step]
+tick_labels = plot_df.index[::step].strftime('%m-%d %H:%M')
+
 # 1. 株価チャート
-ax1.plot(df.index[-200:], df['Close'].iloc[-200:], label="日経先物 (NIY=F)", color="black")
+ax1.plot(x, plot_df['Close'], label="日経先物 (NIY=F)", color="black")
+ax1.set_xticks(tick_indices)
+ax1.set_xticklabels(tick_labels, rotation=15)
 ax1.set_title("日経225先物 15分足チャート (直近200本)")
 ax1.set_ylabel("価格 (円)")
 ax1.grid(True)
 ax1.legend()
 
 # 2. 25本ローリング推移
-ax2.plot(df.index[-200:], df['AvgWin_25'].iloc[-200:], label="直近25本の平均勝ち幅", color="red")
-ax2.plot(df.index[-200:], df['AvgLoss_25'].iloc[-200:], label="直近25本の平均負け幅", color="blue")
+ax2.plot(x, plot_df['AvgWin_25'], label="直近25本の平均勝ち幅", color="red")
+ax2.plot(x, plot_df['AvgLoss_25'], label="直近25本の平均負け幅", color="blue")
+ax2.set_xticks(tick_indices)
+ax2.set_xticklabels(tick_labels, rotation=15)
 ax2.set_title("直近25本における平均勝ち幅 vs 平均負け幅の推移")
 ax2.set_ylabel("変動幅 (円)")
 ax2.grid(True)
