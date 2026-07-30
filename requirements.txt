@@ -2,7 +2,7 @@ streamlit
 yfinance
 gtts
 pandas
-japanize-matplotlib
+fonts-noto-cjk
 matplotlib
 numpy
 
