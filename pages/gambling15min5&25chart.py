@@ -3,15 +3,13 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import japanize_matplotlib
 
 # ページ設定
 st.set_page_config(page_title="15分足 勝敗・損益幅分析", layout="wide")
 
 # ブラウザの自動翻訳（Google翻訳等）による 'removeChild' エラーを防止
 st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True)
-
-# Matplotlibの日本語フォント設定（packages.txtで入れたNoto Sansを指定）
-plt.rcParams['font.family'] = 'Noto Sans CJK JP'
 
 st.title("🎲 CME日経225先物 15分足ギャンブル分析")
 st.caption("直近5本・25本の1本ごとの勝敗数と平均変動幅（勝ち幅・負け幅）を可視化します")
