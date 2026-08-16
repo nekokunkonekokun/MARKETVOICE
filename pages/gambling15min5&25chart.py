@@ -13,7 +13,7 @@ st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True
 
 st.title("🎲 CME日経225先物 15分足ギャンブル分析")
 st.caption(
-    "直近5本・25本の1本ごとの勝敗数と平均変動幅（勝ち幅・負け幅）を可視化します"
+    "直近5本・25本の1本ごとの勝敗数と平均変動幅（勝ち幅・負け幅）・期待値を可視化します"
 )
 
 
@@ -35,7 +35,6 @@ def load_data():
   for w in [5, 25]:
     df[f"Win_{w}"] = (df["Diff"] > 0).rolling(w).sum().fillna(0)
     df[f"Loss_{w}"] = (df["Diff"] < 0).rolling(w).sum().fillna(0)
-    # 該当期間に勝ち/負けがない場合は0で埋める
     df[f"AvgWin_{w}"] = (
         df["Win_Val"].rolling(w, min_periods=1).mean().fillna(0)
     )
@@ -43,7 +42,6 @@ def load_data():
         df["Loss_Val"].rolling(w, min_periods=1).mean().fillna(0)
     )
 
-  # 最初のNaN行を除去
   df = df.dropna(subset=["Close"]).copy()
   return df
 
@@ -57,14 +55,32 @@ if df.empty:
 
 latest = df.iloc[-1]
 
+
+def fmt_val(val):
+  return f"{val:.1f}" if pd.notnull(val) else "0.0"
+
+
+def calc_ev(win, loss, avg_win, avg_loss):
+  total = win + loss
+  if total == 0:
+    return 0.0
+  win_rate = win / total
+  loss_rate = loss / total
+  return (win_rate * avg_win) - (loss_rate * avg_loss)
+
+
 # メトリクス表示
 col1, col2 = st.columns(2)
 
-
-def fmt_val(val):
-  """NaN安全な数値フォーマット関数"""
-  return f"{val:.1f}" if pd.notnull(val) else "0.0"
-
+ev_5 = calc_ev(
+    latest["Win_5"], latest["Loss_5"], latest["AvgWin_5"], latest["AvgLoss_5"]
+)
+ev_25 = calc_ev(
+    latest["Win_25"],
+    latest["Loss_25"],
+    latest["AvgWin_25"],
+    latest["AvgLoss_25"],
+)
 
 with col1:
   st.subheader("■ 直近5本（75分）")
@@ -75,6 +91,12 @@ with col1:
   st.write(f"**平均勝ち幅:** `{fmt_val(latest['AvgWin_5'])} 円`")
   st.write(f"**平均負け幅:** `{fmt_val(latest['AvgLoss_5'])} 円`")
 
+  ev_color_5 = "green" if ev_5 > 0 else ("red" if ev_5 < 0 else "gray")
+  st.markdown(
+      f"**1本あたりの期待値:** :{ev_color_5}[`{ev_5:+.1f} 円`]",
+      help="(勝率 × 平均勝ち幅) - (負け率 × 平均負け幅)",
+  )
+
 with col2:
   st.subheader("■ 直近25本（375分）")
   st.metric(
@@ -84,12 +106,17 @@ with col2:
   st.write(f"**平均勝ち幅:** `{fmt_val(latest['AvgWin_25'])} 円`")
   st.write(f"**平均負け幅:** `{fmt_val(latest['AvgLoss_25'])} 円`")
 
+  ev_color_25 = "green" if ev_25 > 0 else ("red" if ev_25 < 0 else "gray")
+  st.markdown(
+      f"**1本あたりの期待値:** :{ev_color_25}[`{ev_25:+.1f} 円`]",
+      help="(勝率 × 平均勝ち幅) - (負け率 × 平均負け幅)",
+  )
+
 st.divider()
 
 # ----------------------------------------------------
 # グラフ描画
 # ----------------------------------------------------
-# データが200本未満の場合は存在する全データを使用
 num_bars = min(len(df), 200)
 plot_df = df.iloc[-num_bars:].copy()
 
